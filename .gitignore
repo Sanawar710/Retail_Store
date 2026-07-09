@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# DBeaver workspace files
+.metadata/
+
+# PostgreSQL temporary files
+*.log
+
+# Backup files
+*.bak
+
+# Temporary files
+*.tmp
