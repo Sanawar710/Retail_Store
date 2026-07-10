@@ -1,5 +1,7 @@
+-- Create schemas
 CREATE SCHEMA IF NOT EXISTS retail_store;
-
+CREATE SCHEMA IF NOT EXISTS staging;
+CREATE SCHEMA IF NOT EXISTS warehouse;
 CREATE TABLE IF NOT EXISTS retail_store.customers (
     customer_id SERIAL PRIMARY KEY,
     full_name   VARCHAR(100),

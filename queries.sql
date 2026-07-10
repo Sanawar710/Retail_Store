@@ -1,8 +1,3 @@
--- Create schemas
-CREATE SCHEMA IF NOT EXISTS retail_store;
-CREATE SCHEMA IF NOT EXISTS staging;
-CREATE SCHEMA IF NOT EXISTS warehouse;
-
 -- Create staging tables for validation
 CREATE TABLE staging.customers_raw AS
 SELECT *
