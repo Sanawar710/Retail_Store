@@ -14,7 +14,7 @@ CREATE TABLE staging.payments_raw AS
 SELECT *
 FROM retail_store.payments;
 
--- 2.1 Null checks on required fields -----------------------------------------
+--Null checks on required fields 
 SELECT *
 FROM staging.customers_raw
 WHERE full_name IS NULL
@@ -364,3 +364,85 @@ SELECT
         2
     ) AS retention_rate_percent
 FROM customer_summary;
+
+-- Repeat purchase rate of customers
+WITH customer_order_counts AS (
+    SELECT
+        customer_id,
+        COUNT(*) AS order_count
+    FROM warehouse.fact_orders
+    GROUP BY customer_id
+)
+SELECT
+    COUNT(*) AS total_customers,
+    COUNT(*) FILTER (WHERE order_count > 1) AS repeat_customers,
+    ROUND(
+        100.0 * COUNT(*) FILTER (WHERE order_count > 1) / COUNT(*),
+        2
+    ) AS repeat_purchase_rate_percent
+FROM customer_order_counts;
+
+-- Order distribution by city
+SELECT
+    c.city,
+    COUNT(DISTINCT c.customer_id) AS total_customers,
+    COUNT(f.order_id) AS total_orders,
+    COALESCE(SUM(f.revenue), 0) AS total_revenue,
+    ROUND(
+        COALESCE(SUM(f.revenue), 0) / NULLIF(COUNT(DISTINCT c.customer_id), 0),
+        2
+    ) AS avg_revenue_per_customer
+FROM warehouse.dim_customers c
+    LEFT JOIN warehouse.fact_orders f ON c.customer_id = f.customer_id
+GROUP BY c.city
+ORDER BY total_revenue DESC;
+
+-- Customer Segmentation
+WITH customer_totals AS (
+    SELECT
+        c.customer_id,
+        c.full_name,
+        COALESCE(SUM(f.revenue), 0) AS total_spent
+    FROM warehouse.dim_customers c
+        LEFT JOIN warehouse.fact_orders f ON c.customer_id = f.customer_id
+    GROUP BY c.customer_id, c.full_name
+)
+SELECT
+    customer_id,
+    full_name,
+    total_spent,
+    NTILE(4) OVER (ORDER BY total_spent DESC) AS spend_quartile --NTILE(4) divides the customer into 4 equal segments
+FROM customer_totals
+ORDER BY total_spent DESC;
+
+--The gap between signup date and the date of first order
+WITH first_orders AS (
+    SELECT
+        customer_id,
+        MIN(order_date) AS first_order_date
+    FROM warehouse.fact_orders
+    GROUP BY customer_id
+)
+SELECT
+    c.customer_id,
+    c.full_name,
+    c.signup_date,
+    fo.first_order_date,
+    (fo.first_order_date - c.signup_date) AS days_to_first_order
+FROM warehouse.dim_customers c
+    JOIN first_orders fo ON c.customer_id = fo.customer_id
+ORDER BY days_to_first_order DESC;
+
+-- Order status breakdown per product category, with share of category orders
+SELECT
+    p.category,
+    f.status,
+    COUNT(*) AS order_count,
+    ROUND(
+        100.0 * COUNT(*) / SUM(COUNT(*)) OVER (PARTITION BY p.category),
+        2
+    ) AS status_share_percent
+FROM warehouse.fact_orders f
+    JOIN warehouse.dim_products p ON f.product_id = p.product_id
+GROUP BY p.category, f.status
+ORDER BY p.category, order_count DESC;
